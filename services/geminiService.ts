@@ -1,4 +1,5 @@
 import type { GameTurn, GeminiResponse } from '../types';
+import { Type } from "@google/genai";
 
 // This is a workaround to get environment variables in a simple static setup.
 // The user must create an `env.js` file at the root.
