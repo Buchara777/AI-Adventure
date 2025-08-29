@@ -7,7 +7,7 @@ if (!API_KEY) {
 }
 
 const ai = new GoogleGenAI({ apiKey: API_KEY });
-const model = 'gemini-1.5-flash-latest';
+const model = 'gemini-2.5-flash';
 
 export default async function (request: VercelRequest, response: VercelResponse) {
   if (request.method !== 'POST') {
@@ -66,3 +66,4 @@ ${historyText.length > 0 ? historyText : 'Це початок пригоди.'}
   }
 
 }
+
