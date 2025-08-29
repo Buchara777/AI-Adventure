@@ -7,7 +7,6 @@ if (!API_KEY) {
 }
 
 const ai = new GoogleGenAI({ apiKey: API_KEY });
-const model = 'gemini-1.5-flash-latest';
 
 export default async function (request: VercelRequest, response: VercelResponse) {
   if (request.method !== 'POST') {
@@ -15,18 +14,16 @@ export default async function (request: VercelRequest, response: VercelResponse)
   }
 
   try {
-    const { history, action, systemInstruction, schema, prompt } = request.body;
-
+    const { history, action, systemInstruction, schema, prompt, model } = request.body;
+    
     // Перевіряємо, чи це запит на генерацію сценарію (через наявність `prompt`)
     if (prompt) {
-      const geminiResponse = await ai.models.generateContent({
-        model: model,
-        contents: prompt,
-        config: {
-          temperature: 0.9,
-        },
-      });
-      return response.status(200).send(geminiResponse.text.trim());
+      if (!model) {
+          return response.status(400).send('Model is required for scenario generation.');
+      }
+      const aiModel = ai.getGenerativeModel({ model: model });
+      const result = await aiModel.generateContent(prompt);
+      return response.status(200).send(result.response.text);
     }
 
     // Якщо це не запит на сценарій, обробляємо як продовження історії
@@ -45,27 +42,34 @@ ${historyText.length > 0 ? historyText : 'Це початок пригоди.'}
     
     const fullPrompt = generateFullPrompt(history, action);
     
-    const geminiResponse = await ai.models.generateContent({
+    if (!model || !schema) {
+        return response.status(400).send('Model and schema are required for story continuation.');
+    }
+    
+    const aiModel = ai.getGenerativeModel({
       model: model,
-      contents: fullPrompt,
-      config: {
-        systemInstruction: systemInstruction,
+      systemInstruction: systemInstruction,
+    });
+    
+    const result = await aiModel.generateContent({
+      contents: [
+        {
+          role: 'user',
+          parts: [{ text: fullPrompt }],
+        },
+      ],
+      generationConfig: {
         responseMimeType: "application/json",
         responseSchema: schema,
         temperature: 0.8,
         topP: 0.95,
       },
     });
-
-    const jsonText = geminiResponse.text.trim();
-    return response.status(200).send(jsonText);
+    
+    return response.status(200).send(result.response.text);
 
   } catch (error) {
     console.error("Proxy function error:", error);
     return response.status(500).send('Server Error');
   }
-
 }
-
-
-
