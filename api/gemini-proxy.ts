@@ -7,7 +7,7 @@ if (!API_KEY) {
 }
 
 const ai = new GoogleGenAI({ apiKey: API_KEY });
-const model = 'gemini-2.5-flash';
+const model = 'gemini-1.5-flash-latest';
 
 export default async function (request: VercelRequest, response: VercelResponse) {
   if (request.method !== 'POST') {
@@ -64,4 +64,5 @@ ${historyText.length > 0 ? historyText : 'Це початок пригоди.'}
     console.error("Proxy function error:", error);
     return response.status(500).send('Server Error');
   }
+
 }
