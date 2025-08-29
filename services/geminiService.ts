@@ -3,25 +3,6 @@ import type { GameTurn, GeminiResponse } from '../types';
 
 // This is a workaround to get environment variables in a simple static setup.
 // The user must create an `env.js` file at the root.
-declare global {
-  interface Window {
-    process: {
-      env: {
-        API_KEY?: string;
-      };
-    };
-  }
-}
-
-const getApiKey = (): string => {
-  const apiKey = window.process?.env?.API_KEY;
-  if (!apiKey) {
-    throw new Error(
-      "API_KEY not found. Please create an `env.js` file in the root directory and add `window.process = { env: { API_KEY: 'YOUR_API_KEY' } };`"
-    );
-  }
-  return apiKey;
-};
 
 const ai = new GoogleGenAI({ apiKey: getApiKey() });
 
