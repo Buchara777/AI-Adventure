@@ -38,61 +38,40 @@ ${historyText.length > 0 ? historyText : 'Це початок пригоди.'}
 };
 
 export const getNextStorySegment = async (history: GameTurn[], action: string, systemInstruction: string = DEFAULT_SYSTEM_INSTRUCTION): Promise<GeminiResponse> => {
-  try {
-    const response = await fetch('/api/gemini-proxy', {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-      },
-      body: JSON.stringify({
-        history,
-        action,
-        systemInstruction,
-        model,
-        schema
-      }),
-    });
+  const response = await fetch('/api/gemini-proxy', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({
+      history,
+      action,
+      systemInstruction,
+      schema,
+      model: 'gemini-1.5-flash-latest',
+    }),
+  });
 
-    if (!response.ok) {
-      throw new Error("Не вдалося отримати відповідь від ШІ. Спробуйте ще раз.");
-    }
-
-    const jsonString = await response.text();
-    const parsedResponse = JSON.parse(jsonString) as GeminiResponse;
-
-    return parsedResponse;
-
-  } catch (error) {
-    console.error("Error calling proxy API:", error);
-    throw new Error("Не вдалося отримати відповідь від ШІ. Спробуйте ще раз.");
+  if (!response.ok) {
+    throw new Error('Помилка сервера при генерації відповіді');
   }
+
+  const text = await response.text();
+  const parsed = JSON.parse(text);
+  return parsed as GeminiResponse;
 };
 
 export const generateInitialScenario = async (userPrompt?: string): Promise<string> => {
-  try {
-    const prompt = userPrompt
-      ? `Згенеруй стартову умову для текстової гри, базуючись на цьому: "${userPrompt}". Відповідь має бути одним-двома реченнями, без жодних префіксів чи пояснень.`
-      : `Придумай випадкову, цікаву та коротку стартову умову (1-2 речення) для текстової гри в жанрі темного фентезі. Відповідь має бути без жодних префіксів чи пояснень.`;
+  const response = await fetch('/api/gemini-proxy', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({
+      prompt: userPrompt,
+      model: 'gemini-1.5-flash-latest',
+    }),
+  });
 
-    const response = await fetch('/api/gemini-proxy', {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-      },
-      body: JSON.stringify({
-        prompt: prompt, // Ми передаємо prompt, щоб проксі знав, що це запит на генерацію сценарію
-      }),
-    });
-  
-    if (!response.ok) {
-      throw new Error("Не вдалося отримати відповідь від ШІ. Спробуйте ще раз.");
-    }
+  if (!response.ok) {
+    throw new Error('Помилка сервера при генерації стартового сценарію');
+  }
 
-    const text = await response.text(); // Чекаємо на отримання тексту відповіді
-    return text.trim();
-
-  } catch (error) {
-    console.error("Error calling proxy API:", error);
-    throw new Error("Не вдалося отримати відповідь від ШІ. Спробуйте ще раз.");
-  }
+  return await response.text();
 };
