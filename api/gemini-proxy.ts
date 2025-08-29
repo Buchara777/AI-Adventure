@@ -8,7 +8,7 @@ if (!API_KEY) {
 }
 
 const ai = new GoogleGenAI({ apiKey: API_KEY });
-const MODEL = 'gemini-1.5-flash-latest';
+const MODEL = 'gemini-2.5-flash';
 
 // Серверна схема — щоб не ламався enum Type під час JSON-перекидання з клієнта
 const serverSchema = {
@@ -145,3 +145,4 @@ ${historyText.length > 0 ? historyText : 'Це початок пригоди.'}
     return response.status(500).send(error?.message || 'Server Error');
   }
 }
+
