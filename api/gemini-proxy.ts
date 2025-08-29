@@ -1,75 +1,57 @@
-import { GoogleGenAI } from "@google/genai";
-import { VercelRequest, VercelResponse } from '@vercel/node';
+import type { NextApiRequest, NextApiResponse } from 'next';
+import { GoogleGenerativeAI } from '@google/generative-ai';
 
-const API_KEY = process.env.GEMINI_API_KEY;
-if (!API_KEY) {
-  throw new Error("GEMINI_API_KEY is not set.");
+const apiKey = process.env.GEMINI_API_KEY;
+if (!apiKey) {
+  console.error('GEMINI_API_KEY не знайдений у середовищі!');
 }
 
-const ai = new GoogleGenAI({ apiKey: API_KEY });
+const genAI = new GoogleGenerativeAI(apiKey || '');
 
-export default async function (request: VercelRequest, response: VercelResponse) {
-  if (request.method !== 'POST') {
-    return response.status(405).send('Method Not Allowed');
+export default async function handler(req: NextApiRequest, res: NextApiResponse) {
+  if (req.method !== 'POST') {
+    return res.status(405).send('Method Not Allowed');
   }
 
   try {
-    const { history, action, systemInstruction, schema, prompt, model } = request.body;
-    
-    // Перевіряємо, чи це запит на генерацію сценарію (через наявність `prompt`)
+    const { prompt, history, action, systemInstruction, schema, model } = req.body;
+    const selectedModel = model || 'gemini-1.5-flash-latest';
+    const modelInstance = genAI.getGenerativeModel({ model: selectedModel });
+
+    let content: any = {};
+
     if (prompt) {
-      if (!model) {
-          return response.status(400).send('Model is required for scenario generation.');
-      }
-      const aiModel = ai.getGenerativeModel({ model: model });
-      const result = await aiModel.generateContent(prompt);
-      return response.status(200).send(result.response.text);
-    }
+      // Генерація тексту для початкового сценарію
+      const result = await modelInstance.generateContent(prompt);
+      content = result.response.text();
+    } else if (history && action) {
+      // Генерація наступного кроку історії
+      const historyText = history
+        .map((turn: any, index: number) => `Крок ${index + 1} — Дія: ${turn.action}; Історія: ${turn.story}`)
+        .join('\n');
 
-    // Якщо це не запит на сценарій, обробляємо як продовження історії
-    const generateFullPrompt = (history: any[], action: string): string => {
-      const historyText = history.map((turn: any) => `Минула дія: ${turn.action}\nРезультат: ${turn.story}`).join('\n\n');
-      return `
----
+      const fullPrompt = `
+${systemInstruction}
 Історія до цього моменту:
-${historyText.length > 0 ? historyText : 'Це початок пригоди.'}
----
-Поточна дія гравця: ${action}
----
-Продовжуй історію. Опиши, що відбувається далі, і запропонуй три можливі варіанти дій для гравця.
-      `;
-    };
-    
-    const fullPrompt = generateFullPrompt(history, action);
-    
-    if (!model || !schema) {
-        return response.status(400).send('Model and schema are required for story continuation.');
-    }
-    
-    const aiModel = ai.getGenerativeModel({
-      model: model,
-      systemInstruction: systemInstruction,
-    });
-    
-    const result = await aiModel.generateContent({
-      contents: [
-        {
-          role: 'user',
-          parts: [{ text: fullPrompt }],
-        },
-      ],
-      generationConfig: {
-        responseMimeType: "application/json",
-        responseSchema: schema,
-        temperature: 0.8,
-        topP: 0.95,
-      },
-    });
-    
-    return response.status(200).send(result.response.text);
+${historyText}
 
-  } catch (error) {
-    console.error("Proxy function error:", error);
-    return response.status(500).send('Server Error');
+Дія гравця:
+${action}
+`;
+
+      const result = await modelInstance.generateContent({
+        contents: [{ role: 'user', parts: [{ text: fullPrompt }] }],
+        generationConfig: schema ? { responseMimeType: 'application/json', responseSchema: schema } : undefined,
+      });
+
+      content = schema ? JSON.parse(result.response.text()) : result.response.text();
+    } else {
+      return res.status(400).send('Некоректний запит: не вказано ні prompt, ні history/action.');
+    }
+
+    res.status(200).send(content);
+  } catch (error: any) {
+    console.error('Gemini API error:', error);
+    res.status(500).send(error?.message || 'Внутрішня помилка сервера');
   }
 }
