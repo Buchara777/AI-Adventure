@@ -62,59 +62,60 @@ ${historyText.length > 0 ? historyText : 'Це початок пригоди.'}
 
 export const getNextStorySegment = async (history: GameTurn[], action: string, systemInstruction: string = DEFAULT_SYSTEM_INSTRUCTION): Promise<GeminiResponse> => {
   try {
-    const prompt = generateFullPrompt(history, action);
-
-    const response = await ai.models.generateContent({
-      model: model,
-      contents: prompt,
-      config: {
-        systemInstruction: systemInstruction,
-        responseMimeType: "application/json",
-        responseSchema: schema,
-        temperature: 0.8,
-        topP: 0.95,
+    const response = await fetch('/api/gemini-proxy', {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
       },
+      body: JSON.stringify({
+        history,
+        action,
+        systemInstruction,
+        model,
+        schema
+      }),
     });
 
-    const jsonString = response.text.trim();
+    if (!response.ok) {
+      throw new Error("Не вдалося отримати відповідь від ШІ. Спробуйте ще раз.");
+    }
+
+    const jsonString = await response.text();
     const parsedResponse = JSON.parse(jsonString) as GeminiResponse;
 
-    if (!parsedResponse.story || !Array.isArray(parsedResponse.choices) || parsedResponse.choices.length !== 3) {
-      throw new Error("Invalid response structure from API.");
-    }
-    
     return parsedResponse;
 
   } catch (error) {
-    console.error("Error calling Gemini API:", error);
-    if (error instanceof Error && error.message.includes("API_KEY")) {
-       throw error;
-    }
+    console.error("Error calling proxy API:", error);
     throw new Error("Не вдалося отримати відповідь від ШІ. Спробуйте ще раз.");
   }
 };
 
 export const generateInitialScenario = async (userPrompt?: string): Promise<string> => {
-  try {
-    const prompt = userPrompt
-      ? `Згенеруй стартову умову для текстової гри в жанрі темного фентезі, базуючись на цьому: "${userPrompt}". Відповідь має бути одним-двома реченнями, без жодних префіксів чи пояснень.`
-      : `Придумай випадкову, цікаву та коротку стартову умову (1-2 речення) для текстової гри в жанрі темного фентезі. Відповідь має бути без жодних префіксів чи пояснень.`;
+  try {
+    const prompt = userPrompt
+      ? `Згенеруй стартову умову для текстової гри, базуючись на цьому: "${userPrompt}". Відповідь має бути одним-двома реченнями, без жодних префіксів чи пояснень.`
+      : `Придумай випадкову, цікаву та коротку стартову умову (1-2 речення) для текстової гри в жанрі темного фентезі. Відповідь має бути без жодних префіксів чи пояснень.`;
 
-    const response = await ai.models.generateContent({
-      model: model,
-      contents: prompt,
-      config: {
-        temperature: 0.9,
-      },
-    });
-    
-    return response.text.trim();
+    const response = await fetch('/api/gemini-proxy', {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify({
+        prompt: prompt, // Ми передаємо prompt, щоб проксі знав, що це запит на генерацію сценарію
+      }),
+    });
+  
+    if (!response.ok) {
+      throw new Error("Не вдалося отримати відповідь від ШІ. Спробуйте ще раз.");
+    }
 
-  } catch (error) {
-    console.error("Error generating initial scenario:", error);
-    if (error instanceof Error && error.message.includes("API_KEY")) {
-       throw error;
-    }
-    throw new Error("Не вдалося згенерувати сценарій. Спробуйте ще раз.");
-  }
+    const text = await response.text(); // Чекаємо на отримання тексту відповіді
+    return text.trim();
+
+  } catch (error) {
+    console.error("Error calling proxy API:", error);
+    throw new Error("Не вдалося отримати відповідь від ШІ. Спробуйте ще раз.");
+  }
 };
