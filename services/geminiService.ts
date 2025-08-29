@@ -1,7 +1,8 @@
-import { Type } from "@google/genai";
 import type { GameTurn, GeminiResponse } from '../types';
+import { Type } from "@google/genai";
 
-const model = 'gemini-1.5-flash-latest';
+// This is a workaround to get environment variables in a simple static setup.
+// The user must create an `env.js` file at the root.
 
 const schema = {
   type: Type.OBJECT,
@@ -68,31 +69,30 @@ export const getNextStorySegment = async (history: GameTurn[], action: string, s
 };
 
 export const generateInitialScenario = async (userPrompt?: string): Promise<string> => {
-  try {
-    const prompt = userPrompt
-      ? `Згенеруй стартову умову для текстової гри, базуючись на цьому: "${userPrompt}". Відповідь має бути одним-двома реченнями, без жодних префіксів чи пояснень.`
-      : `Придумай випадкову, цікаву та коротку стартову умову (1-2 речення) для текстової гри в жанрі темного фентезі. Відповідь має бути без жодних префіксів чи пояснень.`;
+  try {
+    const prompt = userPrompt
+      ? `Згенеруй стартову умову для текстової гри, базуючись на цьому: "${userPrompt}". Відповідь має бути одним-двома реченнями, без жодних префіксів чи пояснень.`
+      : `Придумай випадкову, цікаву та коротку стартову умову (1-2 речення) для текстової гри в жанрі темного фентезі. Відповідь має бути без жодних префіксів чи пояснень.`;
 
-    const response = await fetch('/api/gemini-proxy', {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-      },
-      body: JSON.stringify({
-        prompt: prompt,
-        model, // Add the model here too
-      }),
-    });
+    const response = await fetch('/api/gemini-proxy', {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify({
+        prompt: prompt, // Ми передаємо prompt, щоб проксі знав, що це запит на генерацію сценарію
+      }),
+    });
+  
+    if (!response.ok) {
+      throw new Error("Не вдалося отримати відповідь від ШІ. Спробуйте ще раз.");
+    }
 
-    if (!response.ok) {
-      throw new Error("Не вдалося отримати відповідь від ШІ. Спробуйте ще раз.");
-    }
+    const text = await response.text(); // Чекаємо на отримання тексту відповіді
+    return text.trim();
 
-    const text = await response.text();
-    return text.trim();
-
-  } catch (error) {
-    console.error("Error calling proxy API:", error);
-    throw new Error("Не вдалося отримати відповідь від ШІ. Спробуйте ще раз.");
-  }
+  } catch (error) {
+    console.error("Error calling proxy API:", error);
+    throw new Error("Не вдалося отримати відповідь від ШІ. Спробуйте ще раз.");
+  }
 };
