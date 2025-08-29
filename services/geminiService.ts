@@ -1,10 +1,7 @@
-import { GoogleGenAI, Type } from "@google/genai";
 import type { GameTurn, GeminiResponse } from '../types';
 
 // This is a workaround to get environment variables in a simple static setup.
 // The user must create an `env.js` file at the root.
-
-const model = 'gemini-2.5-flash';
 
 const schema = {
   type: Type.OBJECT,
